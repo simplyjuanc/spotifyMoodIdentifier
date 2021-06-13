@@ -1,0 +1,7 @@
+#!/bin/bash
+# This hook is run before this virtualenv is deactivated.
+
+unset FLASK_APP
+unset FLASK_DEBUG
+unset CLIENT_ID
+unset SECRET_KEY
