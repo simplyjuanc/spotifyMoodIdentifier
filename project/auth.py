@@ -3,10 +3,7 @@ import os
 from flask import Blueprint, redirect, request
 from flask.globals import session
 import requests
-from pprint import pprint
-import urllib.parse as urlparse
-# from urllib.parse import parse_qs
-# from . import app
+
 
 
 auth = Blueprint('auth', __name__)
@@ -52,6 +49,8 @@ def getAuthCode():
     } 
     token_response = requests.post(TOKEN_URL, data=data)
 
+    session['token_data'] = token_response.json()
+    
     return token_response.text
 
 
