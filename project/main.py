@@ -6,6 +6,7 @@ import requests, json
 import urllib.parse
 
 main = Flask(__name__)
+
 main.secret_key = os.urandom(24).hex()
 main.config['SESSION_TYPE'] = 'filesystem'
 Session(main)
@@ -13,6 +14,7 @@ Session(main)
 BASE_URL = 'https://api.spotify.com/v1/'
 REDIRECT_URI = 'http://localhost:5000/redirect'
 SCOPES = 'user-read-recently-played'
+
 
 
 @main.route('/authorise')
@@ -28,6 +30,7 @@ def getAccessToken():
     requests.get(AUTH_URL, data=payload)
 
     return redirect('/redirect')
+
 
 
 @main.route('/redirect')
@@ -56,11 +59,13 @@ def getTrackHistory():
     call_url = BASE_URL + 'me/player/recently-played'
     token = session.get('access_token')
     
+
     header = {
         'Authorization': 'Bearer {}'.format(token),
         'Accept':'application/json',
         'Content-Type': 'application/json'
     }
+
 
     data = {
         'limit':50
@@ -117,15 +122,11 @@ def analyseTracks():
         else:
             print('Error at {}'.format(track))
         index += 1
-
     
     session['TRACK_ANALYSis'] = track_info_list
 
     return 'Sucess'
 
-@main.route('/tracktraits')
-def averageTrackTraits():
-    pass
 
 @main.route('/visualisetraits')
 def visualiseTrackTraits():
