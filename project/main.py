@@ -87,10 +87,18 @@ def obtainTrackHistory():
     response_json = response.text
     response_json = json.loads(response.text)
 
-    tracks = {}
+    tracks = []
     for track in response_json['items']:
+        track_id = track['track']['id']
         track_name = track['track']['name']
-        tracks[track_name] = {'id':track['track']['id']}
+        tracks.append({
+            'id':track_id,
+            'name':track_name
+        })
+        
+
+    session['TRACK_HISTORY'] = tracks
+    session.modified = True
 
     session['TRACK_HISTORY'] = tracks
     session.modified = True
@@ -99,27 +107,71 @@ def obtainTrackHistory():
 
 @main.route('/trackanalysis')
 def analyseTracks():
-    analysis_url = BASE_URL + 'audio-analysis/'
     feats_url = BASE_URL + 'audio-features'
     tracks = session.get('TRACK_HISTORY', None)
+    token = session.get('access_token')
 
-    # print(tracks)
+    header = {
+        'Authorization': 'Bearer {}'.format(token),
+        'Accept':'application/json',
+        'Content-Type': 'application/json'
+    }
 
     track_id_list = []
-    for k,v in tracks.items():
-        track_id_list.append(v['id'])
+    for i in tracks:
+        track_id_list.append(i['id'])
     
     track_id_str = ','.join(track_id_list)
-    response = requests.get(feats_url, headers=header, params=track_id_str)
+    params = {
+        'ids':track_id_str
+    }
     
+    _response = requests.get(feats_url, headers=header, params=params)
+    _response_json = json.loads(_response.text)
+    track_info_list = _response_json['audio_features']
 
-    # print(response)
 
-    return 'Correctly finished processing audio analysis and saved in session dict variable' 
+    index = 0
+    for track in track_info_list:
+        if track['id'] == tracks[index]['id']:
+            track['name'] = tracks[index]['name']
+        else:
+            print('Error at {}'.format(track))
+        index += 1
+
+    session['TRACK_ANALYSIS'] = track_info_list
+    # print(session['TRACK_ANALYSIS'])
+
+    return str(track_info_list)
+
 
 @main.route('/tracktraits')
 def averageTrackTraits():
-    pass
+    trackAnalysis = session.get('TRACK_ANALYSIS')
+    print(len(trackAnalysis))
+
+    meanAudioFeatures = {
+        'danceability':0,
+        'energy':0,
+        'loudness':0,
+        'mode':0,
+        'speechiness':0,
+        'acousticness':0,
+        'instrumentalness':0,
+        'liveness':0,
+        'valence':0,
+        'tempo':0
+    }
+
+    for track in trackAnalysis:
+        for k,v in track.items():
+            if k in meanAudioFeatures.keys():
+                meanAudioFeatures[k] = meanAudioFeatures[k] + v
+
+    for k, v in meanAudioFeatures.items():
+        meanAudioFeatures[k] = v / len(trackAnalysis)
+
+    return meanAudioFeatures
 
 @main.route('/visualisetraits')
 def visualiseTrackTraits():
