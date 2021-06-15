@@ -1,5 +1,4 @@
 import os
-from re import M
 from flask import Flask, redirect, request, session
 from flask_session import Session
 import requests, json
@@ -64,7 +63,7 @@ def getAuthCode():
     session['refresh_token'] = token_json['refresh_token']
     session.modified = True
     
-    return str(session.items())
+    return redirect('/trackhistory')
 
 
 @main.route('/trackhistory')
@@ -96,13 +95,9 @@ def obtainTrackHistory():
             'name':track_name
         })
         
-
     session['TRACK_HISTORY'] = tracks
     session.modified = True
-
-    session['TRACK_HISTORY'] = tracks
-    session.modified = True
-    return 'I have saved session variable for tracks history.' #+ str(tracks)
+    return redirect('/trackanalysis')
 
 
 @main.route('/trackanalysis')
@@ -130,7 +125,6 @@ def analyseTracks():
     _response_json = json.loads(_response.text)
     track_info_list = _response_json['audio_features']
 
-
     index = 0
     for track in track_info_list:
         if track['id'] == tracks[index]['id']:
@@ -138,17 +132,6 @@ def analyseTracks():
         else:
             print('Error at {}'.format(track))
         index += 1
-
-    session['TRACK_ANALYSIS'] = track_info_list
-    # print(session['TRACK_ANALYSIS'])
-
-    return str(track_info_list)
-
-
-@main.route('/tracktraits')
-def averageTrackTraits():
-    trackAnalysis = session.get('TRACK_ANALYSIS')
-    print(len(trackAnalysis))
 
     meanAudioFeatures = {
         'danceability':0,
@@ -163,15 +146,20 @@ def averageTrackTraits():
         'tempo':0
     }
 
-    for track in trackAnalysis:
+    for track in track_info_list:
         for k,v in track.items():
             if k in meanAudioFeatures.keys():
                 meanAudioFeatures[k] = meanAudioFeatures[k] + v
 
     for k, v in meanAudioFeatures.items():
-        meanAudioFeatures[k] = v / len(trackAnalysis)
+        meanAudioFeatures[k] = v / len(track_info_list)
 
     return meanAudioFeatures
+
+
+# @main.route('/tracktraits')
+# def averageTrackTraits():
+#     return meanAudioFeatures
 
 @main.route('/visualisetraits')
 def visualiseTrackTraits():
