@@ -33,14 +33,8 @@ def getAccessToken():
         'scope':SCOPES,
     }
 
-    auth_response = requests.get(AUTH_URL, data=payload)
+    requests.get(AUTH_URL, data=payload)
 
-    # response_url = urlparse.urlparse(auth_response.url)   
-    # print(response_url)
-    
-
-
-    # session['code'] = auth_response_data['code']
     return redirect('/redirect')
 
 
@@ -70,7 +64,6 @@ def getAuthCode():
 def obtainTrackHistory():
     call_url = BASE_URL + 'me/player/recently-played'
     token = session.get('access_token')
-    print(session.keys())
 
     header = {
         'Authorization': 'Bearer {}'.format(token),
@@ -83,16 +76,18 @@ def obtainTrackHistory():
     }
 
     response = requests.get(call_url, headers=header, params=data)
-    response_json = response.text
     response_json = json.loads(response.text)
 
     tracks = []
     for track in response_json['items']:
         track_id = track['track']['id']
         track_name = track['track']['name']
+        artist_id = track['track']['artists'][0]['id']
+
         tracks.append({
             'id':track_id,
-            'name':track_name
+            'name':track_name,
+            'artist_id': artist_id,
         })
         
     session['TRACK_HISTORY'] = tracks
@@ -105,6 +100,7 @@ def analyseTracks():
     feats_url = BASE_URL + 'audio-features'
     tracks = session.get('TRACK_HISTORY', None)
     token = session.get('access_token')
+    # print(tracks)
 
     header = {
         'Authorization': 'Bearer {}'.format(token),
@@ -124,16 +120,9 @@ def analyseTracks():
     _response = requests.get(feats_url, headers=header, params=params)
     _response_json = json.loads(_response.text)
     track_info_list = _response_json['audio_features']
+    # print(track_info_list)
 
-    index = 0
-    for track in track_info_list:
-        if track['id'] == tracks[index]['id']:
-            track['name'] = tracks[index]['name']
-        else:
-            print('Error at {}'.format(track))
-        index += 1
-
-    meanAudioFeatures = {
+    audioFeatures = {
         'danceability':0,
         'energy':0,
         'loudness':0,
@@ -146,20 +135,23 @@ def analyseTracks():
         'tempo':0
     }
 
-    for track in track_info_list:
-        for k,v in track.items():
-            if k in meanAudioFeatures.keys():
-                meanAudioFeatures[k] = meanAudioFeatures[k] + v
+    artist_ids = []
+    for i in range(len(tracks)):
+        if i < 5:
+            artist_ids.append(tracks[i]['artist_id'])
+        for k,v in audioFeatures.items():
+            if k in track_info_list[i].keys():
+                audioFeatures[k] = track_info_list[i][k] + v
 
-    for k, v in meanAudioFeatures.items():
-        meanAudioFeatures[k] = v / len(track_info_list)
+    for k, v in audioFeatures.items():
+        audioFeatures[k] = v / len(track_info_list)
+        print(k, v)
 
-    return meanAudioFeatures
+    audioFeatures['artist_ids'] = artist_ids
 
+    session['AUDIO_FEATURES'] = audioFeatures
+    return audioFeatures
 
-# @main.route('/tracktraits')
-# def averageTrackTraits():
-#     return meanAudioFeatures
 
 @main.route('/visualisetraits')
 def visualiseTrackTraits():
