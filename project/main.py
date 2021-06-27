@@ -94,13 +94,12 @@ def obtainTrackHistory():
     session.modified = True
     return redirect('/trackanalysis')
 
-
+# Run the different tracks through the analysis endpoint, and save the averages of the audio features and the ids of the latest tracks and artists
 @main.route('/trackanalysis')
 def analyseTracks():
     feats_url = BASE_URL + 'audio-features'
     tracks = session.get('TRACK_HISTORY', None)
     token = session.get('access_token')
-    # print(tracks)
 
     header = {
         'Authorization': 'Bearer {}'.format(token),
@@ -120,7 +119,6 @@ def analyseTracks():
     _response = requests.get(feats_url, headers=header, params=params)
     _response_json = json.loads(_response.text)
     track_info_list = _response_json['audio_features']
-    # print(track_info_list)
 
     audioFeatures = {
         'danceability':0,
@@ -136,20 +134,24 @@ def analyseTracks():
     }
 
     artist_ids = []
+    track_ids = []
     for i in range(len(tracks)):
-        if i < 5:
-            artist_ids.append(tracks[i]['artist_id'])
+        if i < 10:
+            if i % 2 == 0:
+                artist_ids.append(tracks[i]['artist_id'])
+            if i % 2 == 1:
+                track_ids.append(tracks[i]['id'])
         for k,v in audioFeatures.items():
             if k in track_info_list[i].keys():
                 audioFeatures[k] = track_info_list[i][k] + v
 
     for k, v in audioFeatures.items():
         audioFeatures[k] = v / len(track_info_list)
-        print(k, v)
-
+        
     audioFeatures['artist_ids'] = artist_ids
-
+    audioFeatures['tack_ids'] = track_ids
     session['AUDIO_FEATURES'] = audioFeatures
+    session.modified = True
     return audioFeatures
 
 
