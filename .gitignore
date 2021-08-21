@@ -1,0 +1,4 @@
+# created by virtualenv automatically
+.env
+flask_session/*
+pyvenv.cfg
