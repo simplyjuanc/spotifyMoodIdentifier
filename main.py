@@ -1,30 +1,22 @@
-from flask import Flask
+import os
+from auth import SECRET_KEY
+from flask import Flask, session
+from werkzeug.utils import redirect
 
-from auth_2 import SpotifyAuthenticator
+import spotify_auth as sa
 
 main = Flask(__name__)
-
+main.register_blueprint(sa.auth_blueprint)
+main.secret_key = os.urandom(64).hex()
+main.config['SESSION_TYPE'] = 'filesystem'
+main.config['SESSION_COOKIE_NAME'] = 'tests'
 
 @main.route('/trackhistory')
 def obtainTrackHistory():
-    call_url = BASE_URL + 'me/player/recently-played'
-    token = session.get('access_token')
-
-    header = {
-        'Authorization': 'Bearer {}'.format(token),
-        'Accept':'application/json',
-        'Content-Type': 'application/json'
-        }
-
-    data = {
-        'limit':50
-    }
-
-    response = requests.get(call_url, headers=header, params=data)
-    response_json = json.loads(response.text)
-
+    _response_json = sa.call_api(endpoint='me/player/recently-played',payload={'limit':50})
+    
     tracks = []
-    for track in response_json['items']:
+    for track in _response_json['items']:
         track_id = track['track']['id']
         track_name = track['track']['name']
         artist_id = track['track']['artists'][0]['id']
@@ -42,15 +34,8 @@ def obtainTrackHistory():
 # Run the different tracks through the analysis endpoint, and save the averages of the audio features and the ids of the latest tracks and artists
 @main.route('/trackanalysis')
 def analyseTracks():
-    feats_url = BASE_URL + 'audio-features'
+    
     tracks = session.get('TRACK_HISTORY', None)
-    token = session.get('access_token')
-
-    header = {
-        'Authorization': 'Bearer {}'.format(token),
-        'Accept':'application/json',
-        'Content-Type': 'application/json'
-    }
 
     track_id_list = []
     for i in tracks:
@@ -61,8 +46,8 @@ def analyseTracks():
         'ids':track_id_str
     }
     
-    _response = requests.get(feats_url, headers=header, params=params)
-    _response_json = json.loads(_response.text)
+    _response_json = sa.call_api(endpoint='audio_features', params=params)
+
     track_info_list = _response_json['audio_features']
 
     audioFeatures = {

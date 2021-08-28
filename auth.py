@@ -11,8 +11,9 @@ REDIRECT_URL = 'http://127.0.0.1:5000/callback'
 CLIENT_ID = os.environ.get('CLIENT_ID', None)
 SECRET_KEY = os.environ.get('SECRET_KEY', None)
 SCOPES = ['user-read-recently-played','playlist-modify-private']
-ACCESS_TOKEN = ''
-REFRESH_TOKEN = ''
+ACCESS_TOKEN = None
+REFRESH_TOKEN = None
+EXPIRES_IN = None
 
 auth = Flask(__name__)
 auth.secret_key = os.urandom(64).hex()
@@ -40,7 +41,7 @@ def requestAuth():
 
 @auth.route('/callback')
 def getAccessToken():
-    TOKEN_URL = 'https://accounts.spotify.com/api/token'
+    TOKEN_URL =  BASE_AUTH_URL + 'api/token'
     print('2:', request.url)
     print('2:', request.args)
 
@@ -52,10 +53,12 @@ def getAccessToken():
         'client_secret':os.getenv('SECRET_KEY')
     } 
 
-
     token_response = requests.post(TOKEN_URL, data=data)
     token_json = json.loads(token_response.text)
+    
     session['access_token'] = token_json['access_token']
-
+    session['expires_in'] = token_json['expires_in']
+    session['refresh_token'] = token_json['refresh_token']
+    session.modified = True
 
     return str(token_json)
