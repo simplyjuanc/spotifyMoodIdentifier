@@ -18,8 +18,8 @@ class SpotifyHandler(object):
         self.TOKEN_TIMESTAMP = None
         self.EXPIRES_IN = None
         self.BASE_URL = 'https://api.spotify.com/v1'
-        self.auth = SpotifyAuthenticator()
  
+    @handler_blueprint.route('/authorize')
     def requestAuth(self):
         """
         Function that asks for initial user auth and then redirects to whitelisted URL.
@@ -34,6 +34,7 @@ class SpotifyHandler(object):
 
         requests.get(AUTH_URL, params=params, allow_redirects=True)
         return redirect('/callback')
+
 
     @handler_blueprint.route('/callback')
     def accessCallback(self):
@@ -59,6 +60,7 @@ class SpotifyHandler(object):
         self.TOKEN_TIMESTAMP = datetime.utcnow()
         
         return self.ACCESS_TOKEN
+
 
     @handler_blueprint.route('/access')
     def getAccessToken(self):
@@ -91,7 +93,6 @@ class SpotifyHandler(object):
                 self.TOKEN_TIMESTAMP = datetime.utcnow()
 
                 return self.ACCESS_TOKEN
-
 
 
     def call_api(self, endpoint, params=None, payload=None):
