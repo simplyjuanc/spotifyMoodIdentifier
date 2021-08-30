@@ -1,9 +1,9 @@
 import base64
-import datetime
+from datetime import datetime
 import json
 import os
 
-from flask import request
+from flask import request, session
 import requests
 from urllib.parse import quote, urlencode
 
@@ -23,7 +23,30 @@ class SpotifyClient(object):
         self.REFRESH_TOKEN = None
         self.TOKEN_TIMESTAMP = None
         self.EXPIRES_IN = None
- 
+
+    def _call_api(self, endpoint, method='GET', params=None, payload=None):
+        """
+        Calls Spotify API with ACCESS_TOKEN, return JSON object for analysis.
+        """
+        call_url = self.BASE_URL + endpoint
+        access_token = self.getAccessToken()
+        print(access_token)
+
+        header = {
+            'Authorization': 'Bearer {}'.format(access_token),
+            'Accept':'application/json',
+            'Content-Type': 'application/json'
+        }
+
+        if method == 'GET':
+           response = requests.get(call_url, headers=header, data=payload, params=params)
+        elif method == 'POST':
+            response = requests.post(call_url, headers=header, data=payload, params=params)
+        else:
+            print('Please use either GET or POST methods.')
+        
+        return dict(json.loads(response.text))
+
     def generateAuthUrl(self):
         """
         Function that asks for initial user auth and then redirects to whitelisted URL.
@@ -57,10 +80,10 @@ class SpotifyClient(object):
         token_response = requests.post(TOKEN_URL, data=data)
         token_json = json.loads(token_response.text)
         
-        self.ACCESS_TOKEN = token_json['access_token']
-        self.EXPIRES_IN = token_json['expires_in']
-        self.REFRESH_TOKEN = token_json['refresh_token']
-        self.TOKEN_TIMESTAMP = datetime.datetime.utcnow()
+        self.ACCESS_TOKEN = session['ACCESS_TOKEN'] = token_json['access_token']
+        self.EXPIRES_IN = session['EXPIRES_IN'] = token_json['expires_in']
+        self.REFRESH_TOKEN = session['REFRESH_TOKEN'] = token_json['refresh_token']
+        self.TOKEN_TIMESTAMP = session['TOKEN_TIMESTAMP'] = datetime.utcnow()
         
         return dict(token_json)
 
@@ -68,18 +91,19 @@ class SpotifyClient(object):
         """
         Decision tree function that will always return an ACCESS_TOKEN, either by requesting it as a first time or by refreshing it.
         """
-        if self.ACCESS_TOKEN == None:
-            return self.accessCallback()
+        if session.get('ACCESS_TOKEN', None) == None:
+            self.accessCallback()
+            return self.ACCESS_TOKEN
         else:
             requiresRefresh = self.TOKEN_TIMESTAMP + datetime.timedelta(seconds=3600)
-            if requiresRefresh < datetime.datetime.utcnow():
+            if requiresRefresh < datetime.utcnow():
                 return self.ACCESS_TOKEN
             else:
                 _encodedSecrets = f'{self.CLIENT_ID}:{self.SECRET_KEY}'.encode('ascii')
                 encodedSecrets_bytes = base64.b64encode(_encodedSecrets)
                 
                 header = {
-                    'Authorization': 'Basic ' + encodedSecrets_bytes
+                    'Authorization': 'Basic ' + str(encodedSecrets_bytes)
                 }
                 
                 params = {
@@ -90,33 +114,30 @@ class SpotifyClient(object):
                 token_response = requests.post(self.BASE_AUTH_URL + 'api/token', params=params, headers=header)
                 token_json = json.loads(token_response.text)
                 
-                self.ACCESS_TOKEN = token_json['access_token']
-                self.EXPIRES_IN = token_json['expires_in']
-                self.REFRESH_TOKEN = token_json['refresh_token']
-                self.TOKEN_TIMESTAMP = datetime.utcnow()
+                self.ACCESS_TOKEN = session['ACCESS_TOKEN'] = token_json['access_token']
+                self.EXPIRES_IN = session['EXPIRES_IN'] = token_json['expires_in']
+                self.REFRESH_TOKEN = session['REFRESH_TOKEN'] = token_json['refresh_token']
+                self.TOKEN_TIMESTAMP = session['TOKEN_TIMESTAMP'] = datetime.utcnow()
+
+
 
                 return self.ACCESS_TOKEN
 
-
-    def call_api(self, endpoint, method='GET', params=None, payload=None):
-        """
-        Calls Spotify API with ACCESS_TOKEN, return JSON object for analysis.
-        """
-        call_url = self.BASE_URL + endpoint
-        access_token = self.getAccessToken()
-        print(access_token)
-
-        header = {
-            'Authorization': 'Bearer {}'.format(access_token),
-            'Accept':'application/json',
-            'Content-Type': 'application/json'
-        }
-
-        if method == 'GET':
-           response = requests.get(call_url, headers=header, data=payload, params=params)
-        elif method == 'POST':
-            response = requests.post(call_url, headers=header, data=payload, params=params)
-        else:
-            print('Please use either GET or POST methods.')
+    def obtainTrackHistory(self):
+        _response_json = self._call_api(endpoint='me/player/recently-played',payload={'limit':50})
         
-        return dict(json.loads(response.text))
+        tracks = []
+        for track in _response_json['items']:
+            track_id = track['track']['id']
+            track_name = track['track']['name']
+            artist_id = track['track']['artists'][0]['id']
+
+            tracks.append({
+                'id':track_id,
+                'name':track_name,
+                'artist_id': artist_id,
+            })
+            
+        session['TRACK_HISTORY'] = tracks
+        session.modified = True
+        return str(tracks)

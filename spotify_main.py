@@ -12,27 +12,35 @@ main.secret_key = os.urandom(64).hex()
 main.config['SESSION_TYPE'] = 'filesystem'
 main.config['SESSION_COOKIE_NAME'] = 'tests'
 main.register_blueprint(auth_bp)
+
 client = SpotifyClient()
 
-@main.route('/trackhistory')
-def obtainTrackHistory():
-    _response_json = client.call_api(endpoint='me/player/recently-played',payload={'limit':50})
-    
-    tracks = []
-    for track in _response_json['items']:
-        track_id = track['track']['id']
-        track_name = track['track']['name']
-        artist_id = track['track']['artists'][0]['id']
+def call_api(self, endpoint, method='GET', params=None, payload=None):
+    """
+    Calls Spotify API with ACCESS_TOKEN, return JSON object for analysis.
+    """
+    call_url = self.BASE_URL + endpoint
+    access_token = self.getAccessToken()
+    print(access_token)
 
-        tracks.append({
-            'id':track_id,
-            'name':track_name,
-            'artist_id': artist_id,
-        })
-        
-    session['TRACK_HISTORY'] = tracks
-    session.modified = True
-    return redirect('/trackanalysis')
+    header = {
+        'Authorization': 'Bearer {}'.format(access_token),
+        'Accept':'application/json',
+        'Content-Type': 'application/json'
+    }
+
+    if method == 'GET':
+        response = requests.get(call_url, headers=header, data=payload, params=params)
+    elif method == 'POST':
+        response = requests.post(call_url, headers=header, data=payload, params=params)
+    else:
+        print('Please use either GET or POST methods.')
+    
+    return dict(json.loads(response.text))
+
+@main.route('/trackhistory')
+def obtainTrackHistoryUrl():
+    return client.obtainTrackHistory()
 
 @main.route('/trackanalysis')
 def analyseTracks():
@@ -65,6 +73,9 @@ def analyseTracks():
         'tempo':0
     }
 
+
+    # Loop creates seed tracks from the first 10 tracks, alternating artist and song id
+    # It uses the audio feautures of all the tracks in history, not only the first 10
     artist_ids = []
     track_ids = []
     for i in range(len(tracks)):
